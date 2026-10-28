@@ -142,7 +142,12 @@ class BlinkitSource(OrderSource):
             "platform": "desktop_web",
             "web_app_version": WEB_APP_VERSION,
             "rn_bundle_version": RN_BUNDLE_VERSION,
-            "app_version": APP_VERSION_V1 if v1 else APP_VERSION_V2,
+            "app_version": (
+                session.get("app_version_v1")
+                if v1 and session.get("app_version_v1")
+                else session.get("app_version_v2")
+                or (APP_VERSION_V1 if v1 else APP_VERSION_V2)
+            ),
             "origin": BASE,
             "referer": f"{BASE}/account/orders",
             "device_id": session.get("device_id", ""),
@@ -157,6 +162,10 @@ class BlinkitSource(OrderSource):
             headers["lat"] = str(session["lat"])
         if session.get("lon"):
             headers["lon"] = str(session["lon"])
+        # Never send the literal string "null" as the access token: the web app
+        # does that when logged out and the API rejects it with a 401.
+        if headers.get("access_token") == "null":
+            headers.pop("access_token")
         return {k: v for k, v in headers.items() if v}
 
     def _request(
@@ -178,6 +187,7 @@ class BlinkitSource(OrderSource):
                 method,
                 url,
                 headers=self._headers(session, v1=v1),
+                cookies=session.get("cookies") or {},
                 json=json_body,
                 params=params,
                 timeout=30,

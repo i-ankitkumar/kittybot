@@ -168,9 +168,9 @@ def _connect_blinkit() -> int:
                     user: localStorage.getItem('user'),
                     sessionId: sessionStorage.getItem('sessionId'),
                     useragent: localStorage.getItem('useragent'),
-                    cookies: document.cookie,
                 })"""
             )
+            cookie_list = context.cookies()
         finally:
             browser.close()
 
@@ -183,6 +183,7 @@ def _connect_blinkit() -> int:
     auth = json.loads(data["auth"])
     location = json.loads(data["location"]) if data.get("location") else {}
     coords = (location or {}).get("coords") or {}
+    useragent = json.loads(data["useragent"]) if data.get("useragent") else {}
 
     session = {
         "access_token": auth.get("accessToken"),
@@ -193,8 +194,15 @@ def _connect_blinkit() -> int:
         "lat": coords.get("lat"),
         "lon": coords.get("lon"),
         "locality": coords.get("locality"),
-        "cookies": data.get("cookies") or "",
-        "user_agent": data.get("useragent") or "",
+        # The gr_1_* cookies are sent alongside the access_token header:
+        # some Blinkit endpoints validate the cookie, not just the header.
+        "cookies": {
+            c["name"]: c["value"]
+            for c in cookie_list
+            if c["name"].startswith("gr_1_") or c["name"].startswith("__cf")
+        },
+        "user_agent": useragent.get("uaString") or useragent.get("userAgent") or "",
+        "app_version_v1": str(useragent.get("appVersion") or "") or None,
         "captured_at": __import__("datetime").datetime.now().isoformat(),
     }
     if not session["access_token"]:

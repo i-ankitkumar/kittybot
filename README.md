@@ -22,7 +22,20 @@
   <a href="https://iankitkumar.in/tools/kittybot/">Read more on iankitkumar.in</a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/i-ankitkumar/kittybot/actions/workflows/ci.yml">
+    <img src="https://github.com/i-ankitkumar/kittybot/actions/workflows/ci.yml/badge.svg" alt="CI">
+  </a>
+  <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
+</p>
+
 ---
+
+```bash
+git clone https://github.com/i-ankitkumar/kittybot && cd kittybot
+docker compose up -d
+```
 
 No more opening five tabs to tell your flatmate what you paid for.
 
@@ -34,25 +47,13 @@ A ₹1,248 Instamart order might be entirely yours, entirely your flatmate's,
 or split 70/30. **No rule can tell those apart.** So the bot asks, every
 single time, and writes nothing to your kitty until you say yes.
 
-```
-🛒 Instamart: Amul Butter 500g, Potatoes 2kg
-Amount: ₹1,248.00
-· Amul Butter 500g ×2 — ₹285.00
-· Potatoes 2kg ×1 — ₹120.00
-· Onions 3kg ×1 — ₹74.00
-· Tata Salt 1kg ×2 — ₹28.00
-· Surf Excel 2kg ×1 — ₹195.00
+<p align="center">
+  <img src="docs/telegram-approval.png" alt="The Telegram approval card kittybot sends" width="420">
+</p>
 
-Proposed split: equal between Ankit, Yuvraj
-```
-
-```
-[ Split equally (2) ] [ 70 / 30 ]
-[ All mine ]          [ Custom… ]
-[ ❌ Reject ]
-```
-
-Tap a button, or send a custom split like `60/40`, `800 400`, or `me`.
+That is the actual message kittybot sends — the text and the buttons come
+straight out of its own code. Tap a button, or send a custom split like
+`60/40`, `800 400`, or `me`.
 
 ## Features
 
@@ -172,7 +173,15 @@ All four are **read-only**. The tool never places, cancels or modifies an order.
 | Blinkit | Session import from your browser | `kittybot connect blinkit` |
 | BigBasket | Session import from your browser | `kittybot connect bigbasket` |
 
-**Instamart and Zepto** use each company's own MCP server with OAuth 2.1 + PKCE. The bot registers itself as a client, you approve in a browser, and it gets a read-scoped token. No browser automation, no scraping.
+Each adapter sits on a different rung of the integration ladder, and the
+higher the rung the more durable it is:
+
+| Rung | Adapter | How |
+|---|---|---|
+| 1. Official MCP server | Instamart, Zepto | OAuth 2.1 + PKCE, dynamic client registration, read-scoped tokens. Documented and allowlisted by the vendor. |
+| 3. Session replay | Blinkit, BigBasket | One browser login, then the session is replayed headlessly. Undocumented, and it can break when the provider changes. |
+
+**Instamart and Zepto** use each company's own MCP server with OAuth 2.1 + PKCE. The bot registers itself as a client, you approve in a browser, and it gets a read-scoped token. No browser automation, no scraping. Zepto's token is requested with `tools:read` only, so it physically cannot place an order.
 
 **Blinkit and BigBasket** have no public API. The bot opens a real browser once, you log in yourself, and it saves your session to `~/.config/kittybot/` (mode 600) to replay. Your password never touches the bot — and BigBasket does not even have passwords, only OTPs.
 
