@@ -18,6 +18,10 @@
   <a href="#connect-the-grocery-apps">Connect the apps</a>
 </p>
 
+<p align="center">
+  <a href="https://iankitkumar.in/tools/kittybot/">Read more on iankitkumar.in</a>
+</p>
+
 ---
 
 No more opening five tabs to tell your flatmate what you paid for.
@@ -66,7 +70,7 @@ Tap a button, or send a custom split like `60/40`, `800 400`, or `me`.
 ## Install
 
 ```bash
-git clone https://github.com/iankitkumar/kittybot
+git clone https://github.com/i-ankitkumar/kittybot
 cd kittybot
 uv venv && uv pip install -e ".[dev]"
 ```

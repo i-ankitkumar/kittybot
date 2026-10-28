@@ -36,9 +36,10 @@ dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "ruff>=0.5"]
 kittybot = "kittybot.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/iankitkumar/kittybot"
-Repository = "https://github.com/iankitkumar/kittybot"
-Issues = "https://github.com/iankitkumar/kittybot/issues"
+Homepage = "https://github.com/i-ankitkumar/kittybot"
+Repository = "https://github.com/i-ankitkumar/kittybot"
+Issues = "https://github.com/i-ankitkumar/kittybot/issues"
+HomepageSite = "https://iankitkumar.in/tools/kittybot/"
 
 [build-system]
 requires = ["hatchling"]
