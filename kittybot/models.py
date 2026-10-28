@@ -15,7 +15,7 @@ from typing import Literal
 SplitMode = Literal["equal", "weight", "percent", "amount"]
 
 
-class ApprovalStatus(str, enum.Enum):
+class ApprovalStatus(enum.StrEnum):
     """Lifecycle of a proposed expense."""
 
     PENDING = "pending"

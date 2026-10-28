@@ -9,7 +9,6 @@ that approving writes the right split.
 
 from __future__ import annotations
 
-import os
 import re
 from decimal import Decimal
 

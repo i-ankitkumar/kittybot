@@ -16,7 +16,6 @@ import asyncio
 import logging
 import sys
 from decimal import Decimal, InvalidOperation
-from pathlib import Path
 
 from .approvals import ApprovalEngine
 from .config import CONFIG_DIR, CONFIG_FILE, Config, load_config

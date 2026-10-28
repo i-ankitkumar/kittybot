@@ -22,13 +22,12 @@ from .kittysplit import CATEGORY_FOOD, KittysplitClient, KittysplitError
 from .models import (
     ApprovalStatus,
     ExpenseDraft,
-    LineItem,
     MarketOrder,
     Participant,
     Share,
     Split,
 )
-from .splits import SplitParseError, parse_split
+from .splits import parse_split
 from .store import Store
 
 

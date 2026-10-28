@@ -32,7 +32,6 @@ import time
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
 
 from ..models import LineItem, MarketOrder
 from .base import OrderSource, SourceError, build_order, normalise_price

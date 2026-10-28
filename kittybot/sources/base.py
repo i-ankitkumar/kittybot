@@ -35,9 +35,6 @@ class OrderSource(abc.ABC):
     #: whether this source needs credentials before it can be used
     requires_auth: bool = True
 
-    def __init__(self, **_: object) -> None:
-        pass
-
     @abc.abstractmethod
     async def fetch_orders(self, since: datetime | None = None) -> list[MarketOrder]:
         """Return recent orders, newest first."""

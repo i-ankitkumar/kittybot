@@ -1,0 +1,22 @@
+services:
+  kittybot:
+    build: .
+    container_name: kittybot
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      KITTYBOT_KITTY_URL: ${KITTYBOT_KITTY_URL:-}
+      KITTYBOT_MY_NAME: ${KITTYBOT_MY_NAME:-}
+      KITTYBOT_BOT_TOKEN: ${KITTYBOT_BOT_TOKEN:-}
+      KITTYBOT_DEFAULT_PAYER: ${KITTYBOT_DEFAULT_PAYER:-}
+      KITTYBOT_SOURCES: ${KITTYBOT_SOURCES:-}
+    volumes:
+      # config, database and marketplace sessions
+      - kittybot-data:/home/kittybot/.config/kittybot
+      # browser profile, for the Blinkit and BigBasket session imports
+      - kittybot-browser:/home/kittybot/.cache/ms-playwright
+
+volumes:
+  kittybot-data:
+  kittybot-browser:

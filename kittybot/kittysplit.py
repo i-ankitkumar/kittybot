@@ -71,6 +71,14 @@ def _parse_money(text: str) -> Decimal | None:
         return None
 
 
+def _money_in(node: Any, selector: str) -> Decimal | None:
+    """Read the first matching currency span inside ``node``."""
+    target = node.select_one(selector)
+    if not target:
+        return None
+    return _parse_money(target.get_text(strip=True))
+
+
 class KittysplitError(RuntimeError):
     """Raised when Kittysplit rejects or cannot serve a request."""
 
@@ -227,14 +235,8 @@ class KittysplitClient:
             if match:
                 entry_id = int(match.group(1))
 
-            def money(node_selector: str) -> Decimal | None:
-                node = item.select_one(node_selector)
-                if not node:
-                    return None
-                return _parse_money(node.get_text(strip=True))
-
-            amount = money(".entry-main .currency")
-            your_share = money(".entry-label-share .currency")
+            amount = _money_in(item, ".entry-main .currency")
+            your_share = _money_in(item, ".entry-label-share .currency")
             category = item.get("data-category-id")
             paid_by = item.get("data-paid-by-id")
             share_ids = item.get("data-share-party-ids") or ""

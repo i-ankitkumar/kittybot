@@ -10,7 +10,6 @@ message object.
 
 from __future__ import annotations
 
-import os
 import re
 from decimal import Decimal
 
@@ -89,7 +88,6 @@ def _order(order_id="stack-1", total=Decimal("900.00")) -> MarketOrder:
 
 
 def test_bot_proposes_and_approves(stack):
-    bot = stack["bot"]
     engine = stack["engine"]
 
     draft, created = engine.propose_order(_order(), payer="Ankit")

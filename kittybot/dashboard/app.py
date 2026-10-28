@@ -6,15 +6,12 @@ proposals and the recent expenses. It runs on localhost by default.
 
 from __future__ import annotations
 
-from decimal import Decimal
-
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..approvals import ApprovalEngine
 from ..config import Config
-from ..models import ApprovalStatus, ExpenseDraft
 from ..store import Store
 
 TEMPLATES_DIR = __import__("pathlib").Path(__file__).parent / "templates"

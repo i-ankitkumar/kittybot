@@ -16,9 +16,9 @@ import httpx
 import pytest
 
 from kittybot.kittysplit import (
+    BASE_URL,
     CATEGORY_FOOD,
     USER_AGENT,
-    BASE_URL,
     KittysplitClient,
 )
 from kittybot.models import Share, Split
@@ -167,7 +167,9 @@ def test_delete_expense_removes_it(client):
 
 
 def test_unknown_participant_is_rejected(client):
-    with pytest.raises(Exception):
+    from kittybot.kittysplit import KittysplitError
+
+    with pytest.raises(KittysplitError):
         client.add_expense(
             "live bad",
             "10.00",

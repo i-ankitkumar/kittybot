@@ -21,23 +21,20 @@ import asyncio
 import logging
 from decimal import Decimal, InvalidOperation
 
-from aiogram import Bot, Dispatcher, F, Router
+from aiogram import Bot, Dispatcher, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
-    BotCommand,
+    CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
-    ReplyKeyboardMarkup,
-    KeyboardButton,
 )
-from aiogram.types import CallbackQuery
 
-from ..approvals import ApprovalEngine, describe_order
+from ..approvals import ApprovalEngine
 from ..config import Config
-from ..kittysplit import CATEGORY_FOOD, KittysplitClient
+from ..kittysplit import CATEGORY_FOOD
 from ..models import ApprovalStatus, ExpenseDraft, Split
 from ..sources import build_sources
 from ..sources.base import SourceError
@@ -501,7 +498,6 @@ class KittyBot:
             names = participants[: len(values)]
             if len(names) < len(values):
                 return None
-            from decimal import Decimal as D
 
             return Split(
                 mode="percent",

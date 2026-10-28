@@ -60,10 +60,11 @@ def test_enabled_sources_filter_works():
 
 
 def test_blinkit_refuses_non_readonly_paths():
+    from kittybot.sources.base import SourceError
     from kittybot.sources.blinkit import BlinkitSource
 
     for path in ("/v5/carts", "/createOrder/123", "/v2/payment/x", "/v3/cart/1/actions"):
-        with pytest.raises(Exception):
+        with pytest.raises(SourceError):
             BlinkitSource._assert_allowed(path)
 
 
@@ -80,6 +81,7 @@ def test_blinkit_allows_readonly_paths():
 
 
 def test_bigbasket_refuses_non_readonly_paths():
+    from kittybot.sources.base import SourceError
     from kittybot.sources.bigbasket import BigBasketSource
 
     for path in (
@@ -88,7 +90,7 @@ def test_bigbasket_refuses_non_readonly_paths():
         "/potentialorder/",
         "/order/v2/checkout",
     ):
-        with pytest.raises(Exception):
+        with pytest.raises(SourceError):
             BigBasketSource._assert_allowed(path)
 
 

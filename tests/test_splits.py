@@ -6,7 +6,6 @@ from decimal import Decimal
 
 import pytest
 
-from kittybot.models import Share, Split
 from kittybot.splits import SplitParseError, parse_split
 
 PEOPLE = ["Ankit", "Yuvraj"]
