@@ -28,3 +28,6 @@ credentials.json
 # Generated
 *.html.bak
 dashboard_preview.html
+
+# Local QA artifacts
+dogfood-output/
