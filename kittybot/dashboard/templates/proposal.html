@@ -4,46 +4,54 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Proposal · kittybot</title>
-  <style>
-    :root { --bg:#0f1115; --card:#171a21; --border:#262b36; --text:#e6e9ef; --muted:#98a2b3; --accent:#7c6cf5; --red:#f2586b; }
-    * { box-sizing:border-box; }
-    body { margin:0; background:var(--bg); color:var(--text); font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-    .wrap { max-width:640px; margin:0 auto; padding:32px 20px 64px; }
-    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; }
-    h1 { font-size:19px; margin:0 0 6px; }
-    .meta { color:var(--muted); font-size:13.5px; }
-    .items { color:var(--muted); font-size:13.5px; margin-top:14px; border-top:1px solid var(--border); padding-top:14px; }
-    form.inline { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
-    input,button { font:inherit; border-radius:8px; border:1px solid var(--border); background:#10131a; color:var(--text); padding:8px 12px; }
-    input { flex:1; min-width:180px; }
-    button { cursor:pointer; }
-    button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
-    button.danger { color:var(--red); }
-    a { color:var(--accent); }
-  </style>
+  <link rel="stylesheet" href="/static/dashboard.css">
 </head>
 <body>
 <div class="wrap">
-  <p><a href="/pending">← back to pending</a></p>
-  <div class="card">
-    <h1>{{ proposal.description }}</h1>
-    <div class="meta">{{ symbol }}{{ proposal.amount }} &middot; paid by {{ proposal.paid_by }} &middot; {{ proposal.date }}</div>
-    <div class="meta">Proposed split: {{ proposal.split_summary() }}</div>
-    {% if proposal.items %}
-    <div class="items">
-      {% for i in proposal.items %}
-      · {{ i.name }} ×{{ i.quantity }}{% if i.price %} — {{ symbol }}{{ i.price }}{% endif %}<br>
-      {% endfor %}
+  <header class="site-header">
+    <h1><span>kitty</span>bot · proposal</h1>
+    <nav class="site-nav" aria-label="Dashboard">
+      <a href="/pending">← back to pending</a>
+      <a href="/">Overview</a>
+    </nav>
+  </header>
+
+  <main>
+    {% if flash %}
+    <div class="flash {{ flash.kind }}" role="status" aria-live="polite">
+      <div>
+        <strong>{{ 'That did not work' if flash.kind == 'error' else 'Done' }}</strong>
+        {{ flash.message }}
+      </div>
     </div>
     {% endif %}
-    <form class="inline" method="post" action="/proposal/{{ proposal.id }}/approve">
-      <input name="split" placeholder="custom split, e.g. 60/40 or me" value="">
-      <button class="primary" type="submit">Approve</button>
-    </form>
-    <form class="inline" method="post" action="/proposal/{{ proposal.id }}/reject">
-      <button class="danger" type="submit">Reject</button>
-    </form>
-  </div>
+
+    <div class="card" style="padding:20px;">
+      <h1 class="clamp-3" style="font-size:19px; margin:0 0 6px;" title="{{ proposal.description }}">{{ proposal.description }}</h1>
+      <div class="meta">{{ symbol }}{{ proposal.amount }} &middot; paid by {{ proposal.paid_by }} &middot; {{ proposal.date }}</div>
+      <div class="meta">Proposed split: {{ proposal.split_summary() }}</div>
+      {% if proposal.error %}
+      <div class="err-detail" style="margin-top:8px;">{{ proposal.error }}</div>
+      {% endif %}
+      {% if proposal.items %}
+      <div class="items" style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
+        {% for i in proposal.items %}
+        · {{ i.name }} ×{{ i.quantity }}{% if i.price %} — {{ symbol }}{{ i.price }}{% endif %}<br>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <form class="inline" method="post" action="/proposal/{{ proposal.id }}/approve">
+        <label class="visually-hidden" for="split-{{ proposal.id }}">Custom split for {{ proposal.description }}</label>
+        <input id="split-{{ proposal.id }}" name="split" placeholder="custom split, e.g. 60/40 or me" value="">
+        <button class="primary" type="submit">Approve</button>
+        <button class="danger" type="submit" formaction="/proposal/{{ proposal.id }}/reject">Reject</button>
+      </form>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    Nothing reaches the kitty until you approve it.
+  </footer>
 </div>
 </body>
 </html>

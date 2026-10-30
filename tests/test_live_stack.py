@@ -132,10 +132,13 @@ def test_dashboard_renders(stack):
         assert "Amul Butter" in pending.text or "Instamart" in pending.text
 
         # Approving through the dashboard form writes to the kitty.
-        approve = client.post(
-            f"/proposal/{draft.id}/approve", data={"split": "70/30"}, follow_redirects=False
-        )
-        assert approve.status_code in (200, 302, 303, 307)
+        # Follow the redirect the way a browser does: the old assertion
+        # accepted a method-preserving 307 and never checked the page the
+        # user actually lands on.
+        approve = client.post(f"/proposal/{draft.id}/approve", data={"split": "70/30"})
+        assert approve.status_code == 200
+        assert "Method Not Allowed" not in approve.text
+        assert "kittybot" in approve.text
 
         updated = stack["store"].get_proposal(draft.id)
         assert updated.status is ApprovalStatus.APPROVED, updated.error
@@ -145,7 +148,9 @@ def test_dashboard_renders(stack):
         # Rejecting from the dashboard leaves the kitty alone.
         other, _ = engine.propose_order(_order("dash-2"), payer="Ankit")
         before = len(stack["client"].list_expenses())
-        client.post(f"/proposal/{other.id}/reject", follow_redirects=False)
+        rejected = client.post(f"/proposal/{other.id}/reject")
+        assert rejected.status_code == 200
+        assert "Method Not Allowed" not in rejected.text
         assert len(stack["client"].list_expenses()) == before
         assert stack["store"].get_proposal(other.id).status is ApprovalStatus.REJECTED
 

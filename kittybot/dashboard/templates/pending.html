@@ -4,60 +4,62 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pending · kittybot</title>
-  <style>
-    :root { --bg:#0f1115; --card:#171a21; --border:#262b36; --text:#e6e9ef; --muted:#98a2b3; --accent:#7c6cf5; --green:#3ecf8e; --red:#f2586b; }
-    * { box-sizing: border-box; }
-    body { margin:0; background:var(--bg); color:var(--text); font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-    .wrap { max-width:720px; margin:0 auto; padding:32px 20px 64px; }
-    h1 { font-size:20px; margin:0 0 24px; }
-    h1 span { color:var(--accent); }
-    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:14px; }
-    .desc strong { font-size:16px; }
-    .meta { color:var(--muted); font-size:13px; margin-top:4px; }
-    .items { color:var(--muted); font-size:13px; margin-top:8px; }
-    .amt { font-size:20px; font-weight:600; font-variant-numeric:tabular-nums; }
-    form.inline { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
-    input,button { font:inherit; border-radius:8px; border:1px solid var(--border); background:#10131a; color:var(--text); padding:7px 11px; }
-    input { min-width:160px; }
-    button { cursor:pointer; }
-    button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
-    button.danger { color:var(--red); }
-    a { color:var(--accent); }
-    .empty { color:var(--muted); text-align:center; padding:30px; }
-  </style>
+  <link rel="stylesheet" href="/static/dashboard.css">
 </head>
 <body>
 <div class="wrap">
-  <h1><span>kitty</span>bot · pending ({{ pending|length }})</h1>
-  <p><a href="/">← back to overview</a></p>
+  <header class="site-header">
+    <h1><span>kitty</span>bot · pending ({{ pending|length }})</h1>
+    <nav class="site-nav" aria-label="Dashboard">
+      <a href="/">Overview</a>
+      <a href="/export.xlsx">Export</a>
+    </nav>
+  </header>
 
-  {% if not pending %}
-  <div class="card empty">Nothing waiting. Every expense has been decided.</div>
-  {% else %}
-  {% for p in pending %}
-  <div class="card">
-    <div class="desc">
-      <strong>{{ p.description }}</strong>
-      <div class="meta">{{ symbol }}{{ p.amount }} &middot; paid by {{ p.paid_by }} &middot; {{ p.date }}</div>
-      <div class="meta">Proposed: {{ p.split_summary() }}</div>
-    </div>
-    {% if p.items %}
-    <div class="items">
-      {% for i in p.items[:10] %}
-      · {{ i.name }} ×{{ i.quantity }}{% if i.price %} — {{ symbol }}{{ i.price }}{% endif %}<br>
-      {% endfor %}
+  <main>
+    {% if flash %}
+    <div class="flash {{ flash.kind }}" role="status" aria-live="polite">
+      <div>
+        <strong>{{ 'That did not work' if flash.kind == 'error' else 'Done' }}</strong>
+        {{ flash.message }}
+      </div>
     </div>
     {% endif %}
-    <form class="inline" method="post" action="/proposal/{{ p.id }}/approve">
-      <input name="split" placeholder="custom split, e.g. 60/40" value="">
-      <button class="primary" type="submit">Approve</button>
-    </form>
-    <form class="inline" method="post" action="/proposal/{{ p.id }}/reject">
-      <button class="danger" type="submit">Reject</button>
-    </form>
-  </div>
-  {% endfor %}
-  {% endif %}
+
+    {% if not pending %}
+    <div class="card empty">Nothing waiting. Every expense has been decided.</div>
+    {% else %}
+    {% for p in pending %}
+    <div class="card" style="padding:18px; margin-bottom:14px;">
+      <div class="desc">
+        <strong class="clamp-3" style="font-size:16px;" title="{{ p.description }}">{{ p.description }}</strong>
+        <div class="meta">{{ symbol }}{{ p.amount }} &middot; paid by {{ p.paid_by }} &middot; {{ p.date }}</div>
+        <div class="meta">Proposed: {{ p.split_summary() }}</div>
+      </div>
+      {% if p.items %}
+      <div class="items">
+        {% for i in p.items[:10] %}
+        · {{ i.name }} ×{{ i.quantity }}{% if i.price %} — {{ symbol }}{{ i.price }}{% endif %}<br>
+        {% endfor %}
+        {% if p.items|length > 10 %}
+        <span class="more">…and {{ p.items|length - 10 }} more item{{ 's' if p.items|length - 10 != 1 else '' }}</span>
+        {% endif %}
+      </div>
+      {% endif %}
+      <form class="inline" method="post" action="/proposal/{{ p.id }}/approve">
+        <label class="visually-hidden" for="split-{{ p.id }}">Custom split for {{ p.description }}</label>
+        <input id="split-{{ p.id }}" name="split" placeholder="custom split, e.g. 60/40" value="">
+        <button class="primary" type="submit">Approve</button>
+        <button class="danger" type="submit" formaction="/proposal/{{ p.id }}/reject">Reject</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </main>
+
+  <footer class="site-footer">
+    Nothing reaches the kitty until you approve it.
+  </footer>
 </div>
 </body>
 </html>
