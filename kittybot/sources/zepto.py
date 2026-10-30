@@ -32,7 +32,13 @@ from ..mcp import (
     save_token,
 )
 from ..models import LineItem, MarketOrder
-from .base import OrderSource, SourceError, build_order, normalise_price
+from .base import (
+    OrderSource,
+    SourceError,
+    build_order,
+    is_cancelled_order,
+    normalise_price,
+)
 
 MCP_ENDPOINT = "https://mcp.zepto.co.in/mcp"
 AUTH_BASE = "https://auth.zepto.co.in"
@@ -136,6 +142,9 @@ class ZeptoSource(OrderSource):
 def _parse_order(raw: dict) -> MarketOrder | None:
     """Normalise one Zepto order record."""
     if not isinstance(raw, dict):
+        return None
+    # A cancelled or refunded order never became spend.
+    if is_cancelled_order(raw):
         return None
     order_id = (
         raw.get("order_id")

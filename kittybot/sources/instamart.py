@@ -33,7 +33,13 @@ from ..mcp import (
     save_token,
 )
 from ..models import LineItem, MarketOrder
-from .base import OrderSource, SourceError, build_order, normalise_price
+from .base import (
+    OrderSource,
+    SourceError,
+    build_order,
+    is_cancelled_order,
+    normalise_price,
+)
 
 MCP_ENDPOINT = "https://mcp.swiggy.com/im"
 AUTH_BASE = "https://mcp.swiggy.com/auth"
@@ -102,6 +108,9 @@ class InstamartSource(OrderSource):
         data = self._call("get_orders", {"count": 20, "orderType": "INSTAMART"})
         orders: list[MarketOrder] = []
         for raw in data.get("orders", []) or []:
+            # A cancelled or refunded order never became spend.
+            if is_cancelled_order(raw):
+                continue
             items = [
                 LineItem(
                     name=str(item.get("name", "item")),
@@ -128,6 +137,8 @@ class InstamartSource(OrderSource):
 
     async def fetch_order_details(self, order_id: str) -> MarketOrder | None:
         data = self._call("get_order_details", {"orderId": order_id})
+        if is_cancelled_order(data):
+            return None
         items = [
             LineItem(
                 name=str(item.get("name", "item")),

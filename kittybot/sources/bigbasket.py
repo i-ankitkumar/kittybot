@@ -34,7 +34,13 @@ from decimal import Decimal
 from pathlib import Path
 
 from ..models import LineItem, MarketOrder
-from .base import OrderSource, SourceError, build_order, normalise_price
+from .base import (
+    OrderSource,
+    SourceError,
+    build_order,
+    is_cancelled_order,
+    normalise_price,
+)
 
 BASE = "https://www.bigbasket.com"
 SESSION_FILE = Path.home() / ".config" / "kittybot" / "bigbasket_session.json"
@@ -229,13 +235,14 @@ class BigBasketSource(OrderSource):
         order_id = stub.get("order_id")
         if not order_id:
             return None
-        status = str(stub.get("status", "")).upper()
-        if "CANCEL" in status:
+        if is_cancelled_order(stub):
             return None
 
         detail = self._request("GET", f"/order/v2/order/{order_id}/detail", session)
         order = (detail or {}).get("order") or {}
         if not order:
+            return None
+        if is_cancelled_order(order):
             return None
 
         items: list[LineItem] = []

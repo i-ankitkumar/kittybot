@@ -31,7 +31,13 @@ from pathlib import Path
 from typing import Any
 
 from ..models import LineItem, MarketOrder
-from .base import OrderSource, SourceError, build_order, normalise_price
+from .base import (
+    OrderSource,
+    SourceError,
+    build_order,
+    is_cancelled_order,
+    normalise_price,
+)
 
 BASE = "https://blinkit.com"
 SESSION_FILE = Path.home() / ".config" / "kittybot" / "blinkit_session.json"
@@ -226,7 +232,7 @@ class BlinkitSource(OrderSource):
         refs = self._list_order_refs(session)
         orders: list[MarketOrder] = []
         for ref in refs:
-            if ref["status"].upper() == "CANCELLED":
+            if is_cancelled_order(ref):
                 continue
             detail = self._order_detail(session, ref)
             if detail is None:
@@ -304,6 +310,30 @@ def _walk(nodes: Any):
             yield from _walk(value)
 
 
+def _history_text(data: dict, key: str) -> str | None:
+    """Find a text field in a history widget's data.
+
+    Blinkit's history card nests the interesting values one level deeper
+    than it first appears::
+
+        data.items[].data.left_underlined_subtitle.text   # the ₹ total
+        data.items[].data.subtitle.text                   # the date
+
+    but some generations put them directly on ``data``. Look in both.
+    """
+    direct = _text(data, key)
+    if direct:
+        return direct
+    for entry in data.get("items", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        inner = entry.get("data") or entry
+        value = _text(inner, key)
+        if value:
+            return value
+    return None
+
+
 def _parse_order_refs(widgets: list) -> list[dict[str, Any]]:
     """Pull (order_id, cart_id, status, amount, date) out of the history list."""
     refs: list[dict[str, Any]] = []
@@ -318,8 +348,8 @@ def _parse_order_refs(widgets: list) -> list[dict[str, Any]]:
             match = re.search(r"cart_id=(\d+)", deeplink)
             cart_id = match.group(1) if match else None
         data = node.get("data") or {}
-        amount = normalise_price(_text(data, "left_underlined_subtitle"))
-        placed = _text(data, "subtitle")
+        amount = normalise_price(_history_text(data, "left_underlined_subtitle"))
+        placed = _history_text(data, "subtitle")
         refs.append(
             {
                 "order_id": str(order_id),
@@ -496,8 +526,10 @@ def _parse_placed_on(text: str) -> str | None:
     if not match:
         return None
     rest = match.group(1).strip()
-    # "Sun, 13 Sep'26, 9:58 PM"
-    stripped = re.sub(r"'(\d{2})\b", r"\1", rest)
+    # "Sun, 13 Sep'26, 9:58 PM" -> "Sun, 13 Sep 26, 9:58 PM".
+    # The space matters: without it the month name and the year are glued
+    # together ("Sep26") and strptime cannot parse them.
+    stripped = re.sub(r"'(\d{2})\b", r" \1", rest)
     stripped = re.sub(r"\b(\d{3,4})\b", lambda m: m.group(1)[:2], stripped)
     for fmt in ("%a, %d %b %y, %I:%M %p", "%a, %d %b %y, %H:%M", "%d %b %y, %I:%M %p"):
         try:

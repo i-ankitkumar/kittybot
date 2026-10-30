@@ -19,6 +19,9 @@ class ApprovalStatus(enum.StrEnum):
     """Lifecycle of a proposed expense."""
 
     PENDING = "pending"
+    #: claimed by an approver, write in flight. Prevents a double-submit
+    #: from writing the expense twice.
+    APPROVING = "approving"
     APPROVED = "approved"
     REJECTED = "rejected"
     SKIPPED = "skipped"

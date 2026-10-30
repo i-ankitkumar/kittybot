@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime
+import threading
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -56,19 +57,65 @@ CREATE INDEX IF NOT EXISTS idx_proposals_source ON proposals(source);
 
 
 class Store:
-    """A thin SQLite wrapper for proposals and seen orders."""
+    """A thin SQLite wrapper for proposals and seen orders.
+
+    Each thread gets its own SQLite connection. A single shared connection
+    is not safe: concurrent ``execute()`` calls on one connection interleave
+    their cursors and SQLite raises ``InterfaceError: bad parameter or other
+    API misuse``, which silently breaks the atomic claim that stops a
+    double-submit from writing an expense twice. Separate connections plus
+    WAL give real concurrency and correct compare-and-set semantics.
+    """
 
     def __init__(self, path: Path | str | None = None) -> None:
         self.path = Path(path) if path else DEFAULT_DB_PATH
-        if str(self.path) != ":memory:":
+        self._local = threading.local()
+        self._connections: list[sqlite3.Connection] = []
+        self._connections_lock = threading.Lock()
+
+        if str(self.path) == ":memory:":
+            # Every thread must see the same in-memory database, so use a
+            # named shared-cache URI and keep one connection alive for the
+            # lifetime of the store.
+            self._uri = f"file:kittybot-{id(self)}?mode=memory&cache=shared"
+            self._keepalive = sqlite3.connect(self._uri, check_same_thread=False)
+        else:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self.path), check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._conn.executescript(SCHEMA)
-        self._conn.commit()
+            self._uri = str(self.path)
+
+        conn = self._conn
+        conn.executescript(SCHEMA)
+        conn.commit()
+
+    @property
+    def _conn(self) -> sqlite3.Connection:
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(self._uri, check_same_thread=False, timeout=15.0)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA journal_mode = WAL")
+            conn.execute("PRAGMA busy_timeout = 15000")
+            conn.execute("PRAGMA foreign_keys = ON")
+            self._local.conn = conn
+            with self._connections_lock:
+                self._connections.append(conn)
+        return conn
 
     def close(self) -> None:
-        self._conn.close()
+        with self._connections_lock:
+            for conn in self._connections:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+            self._connections.clear()
+        keepalive = getattr(self, "_keepalive", None)
+        if keepalive is not None:
+            try:
+                keepalive.close()
+            except Exception:
+                pass
+            self._keepalive = None
 
     def __enter__(self) -> Store:
         return self
@@ -153,6 +200,51 @@ class Store:
 
     def pending_proposals(self, limit: int = 50) -> list[ExpenseDraft]:
         return self.list_proposals(ApprovalStatus.PENDING, limit)
+
+    def claim_proposal(self, proposal_id: int) -> bool:
+        """Atomically claim a pending proposal for writing.
+
+        Returns True for exactly one caller. The UPDATE's WHERE clause is
+        what makes it safe: two concurrent approvers both see
+        ``status = 'pending'``, but only one UPDATE can match the row, so
+        only one of them ever writes the expense.
+        """
+        cursor = self._conn.execute(
+            """
+            UPDATE proposals
+               SET status = ?, decided_at = ?
+             WHERE id = ? AND status = ?
+            """,
+            (
+                ApprovalStatus.APPROVING.value,
+                datetime.now().isoformat(),
+                proposal_id,
+                ApprovalStatus.PENDING.value,
+            ),
+        )
+        self._conn.commit()
+        return cursor.rowcount == 1
+
+    def release_stale_claims(self, max_age_seconds: int = 300) -> int:
+        """Return proposals stuck in ``approving`` back to ``pending``.
+
+        If the process died mid-write the proposal would otherwise be stuck
+        forever. Anything claimed longer than ``max_age_seconds`` ago is
+        treated as abandoned.
+        """
+        cutoff = (
+            datetime.now() - timedelta(seconds=max_age_seconds)
+        ).isoformat()
+        cursor = self._conn.execute(
+            """
+            UPDATE proposals
+               SET status = ?, decided_at = NULL
+             WHERE status = ? AND decided_at < ?
+            """,
+            (ApprovalStatus.PENDING.value, ApprovalStatus.APPROVING.value, cutoff),
+        )
+        self._conn.commit()
+        return cursor.rowcount
 
     def decide(
         self,

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import abc
 import json
+import re
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -68,8 +69,53 @@ class OrderSource(abc.ABC):
         self.save_credentials(data)
 
 
+#: Currency words and symbols that may prefix or suffix an amount.
+_CURRENCY_RE = re.compile(
+    r"(?i)\b(?:rs|inr|usd|eur|gbp|jpy|aud|cad)\b\.?|₹|\$|€|£|¥|₹"
+)
+_AMOUNT_RE = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
+
+
+#: Words that mean "this order never became spend".
+_CANCEL_WORDS = ("CANCEL", "REFUND", "RETURNED", "FAILED", "DECLINED")
+
+
+def is_cancelled_order(raw: object) -> bool:
+    """True when a marketplace marks the order as cancelled or refunded.
+
+    A cancelled order is not spend. Every adapter checks this, because
+    importing one would add an expense that never happened.
+    """
+    if not isinstance(raw, dict):
+        return False
+    for key in ("status", "order_status", "orderStatus", "state", "order_state"):
+        value = raw.get(key)
+        if isinstance(value, str) and any(word in value.upper() for word in _CANCEL_WORDS):
+            return True
+    for key in ("refund_details", "refundDetails", "refund"):
+        value = raw.get(key)
+        if not value:
+            continue
+        if isinstance(value, dict):
+            amount = normalise_price(
+                value.get("total_amount_refunded")
+                or value.get("refunded_amount")
+                or value.get("amount")
+            )
+            if amount and amount > 0:
+                return True
+        elif isinstance(value, (int, float, Decimal)) and Decimal(str(value)) > 0:
+            return True
+    return False
+
+
 def normalise_price(value: object) -> Decimal | None:
-    """Coerce whatever a marketplace returns into a Decimal rupees amount."""
+    """Coerce whatever a marketplace returns into a Decimal rupees amount.
+
+    Handles "₹1,234.50", "Rs. 120", "Rs 120", "INR 99" and plain numbers.
+    The currency prefix has to be stripped BEFORE the number is parsed,
+    otherwise the dot in "Rs." becomes a decimal point and 120 reads as 0.12.
+    """
     if value is None:
         return None
     if isinstance(value, (int, float, Decimal)):
@@ -77,12 +123,12 @@ def normalise_price(value: object) -> Decimal | None:
     text = str(value).strip()
     if not text:
         return None
-    # "₹1,234.50", "Rs. 120", "1234.5"
-    cleaned = "".join(ch for ch in text if ch.isdigit() or ch in ".-")
-    if not cleaned or cleaned in ("-", ".", "-."):
+    cleaned = _CURRENCY_RE.sub(" ", text)
+    match = _AMOUNT_RE.search(cleaned)
+    if not match:
         return None
     try:
-        return Decimal(cleaned).quantize(Decimal("0.01"))
+        return Decimal(match.group(0).replace(",", "")).quantize(Decimal("0.01"))
     except Exception:
         return None
 

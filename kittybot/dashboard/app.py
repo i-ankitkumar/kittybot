@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import json
 import re
+import secrets
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -50,9 +51,50 @@ def source_label(source: str) -> str:
     return labels.get((source or "").lower(), (source or "unknown").title())
 
 
+def _auth_dependency(token: str):
+    """Build a dependency that enforces HTTP Basic auth with ``token``.
+
+    The dashboard can approve expenses on the kitty, so it must not be an
+    open door if it is reachable by anything other than this machine. Any
+    username is accepted; the token is the password.
+    """
+    from fastapi import Depends
+    from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
+    basic = HTTPBasic(auto_error=False)
+
+    def require_auth(
+        credentials: HTTPBasicCredentials | None = Depends(basic),
+    ) -> bool:
+        if credentials is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required",
+                headers={"WWW-Authenticate": "Basic"},
+            )
+        supplied = (credentials.password or "").strip()
+        if not secrets.compare_digest(supplied, token):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Basic"},
+            )
+        return True
+
+    return require_auth
+
+
 def create_app(config: Config, engine: ApprovalEngine, store: Store) -> FastAPI:
     """Build the dashboard app."""
-    app = FastAPI(title="kittybot", docs_url=None, redoc_url=None)
+    token = (config.dashboard.token or "").strip()
+    dependencies = [Depends(_auth_dependency(token))] if token else []
+
+    app = FastAPI(
+        title="kittybot",
+        docs_url=None,
+        redoc_url=None,
+        dependencies=dependencies,
+    )
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 

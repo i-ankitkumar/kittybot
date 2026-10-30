@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/dashboard.png" alt="kittybot dashboard" width="820">
+  <img src="docs/dashboard.webp" alt="kittybot dashboard" width="820">
 </p>
 
 <h1 align="center">kittybot</h1>
@@ -66,7 +66,7 @@ straight out of its own code. Tap a button, or send a custom split like
 
 | Dashboard | Approvals |
 |---|---|
-| ![dashboard](docs/dashboard.png) | ![pending](docs/pending.png) |
+| ![dashboard](docs/dashboard.webp) | ![pending](docs/pending.webp) |
 
 ## Install
 
@@ -112,6 +112,8 @@ kittybot run
 
 The bot talks to Telegram over long polling, so **no public URL or webhook tunnel is needed**. A dashboard is served at `http://localhost:8080`.
 
+The dashboard can approve expenses on your kitty, so it binds to `127.0.0.1` by default. If you point it at anything else, set `KITTYBOT_DASHBOARD_TOKEN` and it will demand HTTP Basic auth before showing a single page.
+
 ### Configuration
 
 Settings live in `~/.config/kittybot/config.toml` (mode 600) and can be overridden with environment variables:
@@ -126,6 +128,7 @@ Settings live in `~/.config/kittybot/config.toml` (mode 600) and can be overridd
 | `KITTYBOT_SOURCES` | Comma-separated: `instamart,zepto,blinkit,bigbasket` |
 | `KITTYBOT_ALLOWED_CHAT_IDS` | Restrict the bot to specific chat ids |
 | `KITTYBOT_DASHBOARD_PORT` | Dashboard port (default 8080) |
+| `KITTYBOT_DASHBOARD_TOKEN` | If set, the dashboard requires HTTP Basic auth (any username, this token as the password) |
 
 ## Commands
 
@@ -226,8 +229,10 @@ Every endpoint and all four split modes were verified against a live kitty, and 
 ## Safety properties
 
 - **Nothing is written without approval.** `ApprovalEngine.approve()` is the only method in the codebase that creates an expense.
+- **An approval can only land once.** The proposal is claimed with an atomic `UPDATE ... WHERE status = 'pending'` before the write. A double-clicked button, two tabs, or a browser retry reads "pending" twice but only one UPDATE matches the row, so the kitty gets one entry, not two. This is the difference between a flatmate being charged once and twice.
 - **Read-only marketplace access, enforced.** Each adapter allowlists URL *prefixes*, not HTTP methods — Blinkit's cart and checkout endpoints are POSTs too, so a method-based rule would not be enough.
 - **Bills reconcile or they are rejected.** BigBasket orders are checked line-by-line (`unit_price × quantity == line_total`), against the subtotal, and against the total. An order that does not add up is refused rather than recorded wrong.
+- **The dashboard can lock itself.** `KITTYBOT_DASHBOARD_TOKEN` turns on HTTP Basic auth for every page, including the approve and reject routes.
 - **Credentials stay local.** `~/.config/kittybot/`, mode 600, never in the repo.
 - **Cancelled and refunded orders are skipped.** They are not spend.
 

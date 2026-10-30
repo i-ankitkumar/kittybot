@@ -42,6 +42,9 @@ class TelegramConfig(BaseModel):
 class DashboardConfig(BaseModel):
     host: str = "127.0.0.1"
     port: int = 8080
+    #: If set, the dashboard requires HTTP Basic auth with this token as the
+    #: password (any username). Leave empty only for a localhost-only run.
+    token: str = ""
 
 
 class Config(BaseModel):
@@ -118,5 +121,7 @@ def load_config(path: Path | None = None) -> Config:
         config.dashboard.host = value
     if value := env.get("KITTYBOT_DASHBOARD_PORT"):
         config.dashboard.port = int(value)
+    if value := env.get("KITTYBOT_DASHBOARD_TOKEN"):
+        config.dashboard.token = value
 
     return config

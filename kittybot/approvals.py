@@ -176,6 +176,11 @@ class ApprovalEngine:
         """Approve a proposal and write it to Kittysplit.
 
         This is the ONLY method in the codebase that creates an expense.
+
+        The proposal is claimed atomically before the write. Without that, a
+        double-clicked Approve button (or two tabs, or a browser retry)
+        reads "pending" twice and writes the expense twice — which charges
+        the flatmate twice.
         """
         draft = self.store.get_proposal(proposal_id)
         if draft is None:
@@ -187,6 +192,12 @@ class ApprovalEngine:
 
         final_split = split or draft.split
         final_split.validate(draft.amount)
+
+        # Atomic claim: exactly one caller gets here.
+        if not self.store.claim_proposal(proposal_id):
+            raise ApprovalError(
+                f"proposal {proposal_id} is being approved by someone else"
+            )
 
         try:
             result = self.client.add_expense(
