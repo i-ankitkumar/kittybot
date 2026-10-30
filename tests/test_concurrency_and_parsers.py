@@ -152,6 +152,25 @@ def test_a_stale_claim_is_released(engine):
     assert engine.store.get_proposal(draft.id).status is ApprovalStatus.PENDING
 
 
+def test_the_engine_releases_stale_claims_on_startup(engine):
+    """A proposal stranded by a crashed process is recovered, not lost."""
+    draft = _proposal(engine, "stale-1")
+    engine.store.claim_proposal(draft.id)
+    assert engine.store.get_proposal(draft.id).status is ApprovalStatus.APPROVING
+
+    # Backdate the claim, then build a new engine the way a restart would.
+    engine.store._conn.execute(
+        "UPDATE proposals SET decided_at = '2000-01-01T00:00:00' WHERE id = ?",
+        (draft.id,),
+    )
+    engine.store._conn.commit()
+
+    restarted = ApprovalEngine(engine.client, engine.store)
+    recovered = restarted.store.get_proposal(draft.id)
+    assert recovered is not None
+    assert recovered.status is ApprovalStatus.PENDING
+
+
 def test_store_survives_concurrent_reads_and_writes(engine):
     """The store must not raise InterfaceError under concurrent access."""
     errors: list[Exception] = []
@@ -512,3 +531,6 @@ def test_price_normalisation_handles_every_shape():
     assert normalise_price("") is None
     assert normalise_price(None) is None
     assert normalise_price("no digits") is None
+    assert normalise_price(".50") == Decimal("0.50")
+    assert normalise_price("₹ 1,234.50") == Decimal("1234.50")
+    assert normalise_price("INR 99") == Decimal("99.00")

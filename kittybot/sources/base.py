@@ -73,7 +73,7 @@ class OrderSource(abc.ABC):
 _CURRENCY_RE = re.compile(
     r"(?i)\b(?:rs|inr|usd|eur|gbp|jpy|aud|cad)\b\.?|₹|\$|€|£|¥|₹"
 )
-_AMOUNT_RE = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
+_AMOUNT_RE = re.compile(r"-?(?:\d[\d,]*(?:\.\d+)?|\.\d+)")
 
 
 #: Words that mean "this order never became spend".

@@ -15,6 +15,7 @@ Personal orders are recognised as such and proposed as 100% one person.
 
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -29,6 +30,8 @@ from .models import (
 )
 from .splits import parse_split
 from .store import Store
+
+logger = logging.getLogger(__name__)
 
 
 class ApprovalError(RuntimeError):
@@ -95,6 +98,15 @@ class ApprovalEngine:
     def __init__(self, client: KittysplitClient, store: Store) -> None:
         self.client = client
         self.store = store
+        # A proposal claimed by a process that died mid-write would be stuck
+        # in "approving" for ever. Release anything abandoned before this
+        # process started claiming things of its own.
+        released = self.store.release_stale_claims()
+        if released:
+            logger.warning(
+                "released %s proposal(s) left in 'approving' by a previous run",
+                released,
+            )
 
     # ------------------------------------------------------------------
     # reading
