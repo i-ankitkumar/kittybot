@@ -30,7 +30,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "ruff>=0.5"]
+dev = ["pytest>=8.2", "pytest-asyncio>=0.24", "ruff>=0.5"]
 
 [project.scripts]
 kittybot = "kittybot.cli:main"
@@ -58,4 +58,8 @@ ignore = ["E501", "B008"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+# Pin the fixture loop scope. Left unset, pytest-asyncio warns and a future
+# release will change the default, which would silently alter how the async
+# bot handler tests bind their fixtures.
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
