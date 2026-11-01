@@ -299,6 +299,8 @@ class KittyBot:
         created = 0
         failures: list[str] = []
 
+        skipped_zero: list[str] = []
+
         for source in sources:
             try:
                 orders = await source.fetch_orders()
@@ -311,6 +313,10 @@ class KittyBot:
 
             for order in orders:
                 if order.total <= 0:
+                    # A zero total is not spend, but dropping it silently
+                    # leaves the user with no idea why an order they know
+                    # about never showed up.
+                    skipped_zero.append(f"{source.label} {order.order_id}")
                     continue
                 try:
                     _, is_new = self.engine.propose_order(order, payer=payer)
@@ -324,6 +330,12 @@ class KittyBot:
                         await self._send_proposal(message, draft)
 
         summary = f"Pulled orders from {len(sources) - len(failures)} app(s). {created} new proposal(s)."
+        if skipped_zero:
+            summary += (
+                f"\n\nSkipped {len(skipped_zero)} order(s) with a zero total: "
+                + ", ".join(skipped_zero[:5])
+                + ("..." if len(skipped_zero) > 5 else "")
+            )
         if failures:
             summary += "\n\n" + "\n".join(f"⚠️ {f}" for f in failures)
         await status.edit_text(summary)

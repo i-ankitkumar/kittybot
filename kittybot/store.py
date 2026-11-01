@@ -284,6 +284,51 @@ class Store:
         self._conn.execute("DELETE FROM proposals WHERE id = ?", (proposal_id,))
         self._conn.commit()
 
+    def prune_proposals(self, keep: int = 200, max_pending_age_days: int | None = None) -> int:
+        """Drop old proposals, keeping the most recent decided ones.
+
+        A bot left running accumulates a proposal for every order it sees,
+        forever. The kitty is the source of truth for what was actually
+        spent, so the decided proposals are only a local audit trail and
+        can be trimmed.
+
+        Pending proposals are work waiting on a human, so they are never
+        dropped by the ``keep`` count. Pass ``max_pending_age_days`` to
+        also drop the ones nobody ever acted on; an order that old has
+        almost certainly been paid or forgotten.
+        """
+        keep = max(0, int(keep))
+        cursor = self._conn.execute(
+            """
+            DELETE FROM proposals
+             WHERE status != ?
+               AND id NOT IN (
+                     SELECT id FROM proposals
+                      WHERE status != ?
+                      ORDER BY id DESC
+                      LIMIT ?
+                   )
+            """,
+            (ApprovalStatus.PENDING.value, ApprovalStatus.PENDING.value, keep),
+        )
+        removed = cursor.rowcount
+
+        if max_pending_age_days is not None:
+            cutoff = (
+                datetime.now() - timedelta(days=max(0, int(max_pending_age_days)))
+            ).isoformat()
+            cursor = self._conn.execute(
+                """
+                DELETE FROM proposals
+                 WHERE status = ? AND COALESCE(decided_at, '') < ?
+                """,
+                (ApprovalStatus.PENDING.value, cutoff),
+            )
+            removed += cursor.rowcount
+
+        self._conn.commit()
+        return removed
+
     # ------------------------------------------------------------------
     # seen orders
     # ------------------------------------------------------------------

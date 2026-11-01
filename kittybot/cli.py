@@ -508,6 +508,37 @@ def cmd_approve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_prune(args: argparse.Namespace) -> int:
+    """Trim old proposals from the local store.
+
+    The kitty is the source of truth for what was spent. The local proposal
+    list is only an audit trail, and it grows for as long as the bot runs.
+    """
+    config = load_config()
+    store = Store(config.db_path or None)
+    before = len(store.list_proposals(limit=100_000))
+    pending_before = len(store.pending_proposals())
+
+    removed = store.prune_proposals(
+        keep=args.keep,
+        max_pending_age_days=args.max_pending_age_days,
+    )
+
+    after = len(store.list_proposals(limit=100_000))
+    pending_after = len(store.pending_proposals())
+    print(f"Removed {removed} proposal(s). {before} -> {after} in total.")
+    if args.max_pending_age_days is None and pending_after:
+        print(
+            f"{pending_after} proposal(s) are still waiting for you. "
+            "They are never dropped automatically; use "
+            "--max-pending-age-days to clear the stale ones."
+        )
+    elif pending_before != pending_after:
+        print(f"{pending_before} -> {pending_after} proposal(s) still waiting.")
+    store.close()
+    return 0
+
+
 def cmd_balance(args: argparse.Namespace) -> int:
     config = load_config()
     if not config.kitty.kitty_url:
@@ -588,6 +619,23 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("status", help="show what is configured").set_defaults(func=cmd_status)
     sub.add_parser("pending", help="list proposals").set_defaults(func=cmd_pending)
     sub.add_parser("balance", help="who owes whom").set_defaults(func=cmd_balance)
+
+    prune = sub.add_parser(
+        "prune", help="trim old proposals from the local store"
+    )
+    prune.add_argument(
+        "--keep",
+        type=int,
+        default=200,
+        help="how many decided proposals to keep (default 200)",
+    )
+    prune.add_argument(
+        "--max-pending-age-days",
+        type=int,
+        default=None,
+        help="also drop pending proposals older than this many days",
+    )
+    prune.set_defaults(func=cmd_prune)
 
     approve = sub.add_parser("approve", help="approve a proposal")
     approve.add_argument("id")

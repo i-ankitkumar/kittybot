@@ -38,6 +38,7 @@ from .base import (
     build_order,
     is_cancelled_order,
     normalise_price,
+    require_total,
 )
 
 MCP_ENDPOINT = "https://mcp.zepto.co.in/mcp"
@@ -182,6 +183,7 @@ def _parse_order(raw: dict) -> MarketOrder | None:
         or raw.get("created_at")
         or raw.get("ordered_at")
     )
+    total = require_total(total, "Zepto", str(order_id))
     return build_order(
         source="zepto",
         order_id=str(order_id),

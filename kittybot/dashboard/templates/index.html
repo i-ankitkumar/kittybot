@@ -28,6 +28,17 @@
     </div>
     {% endif %}
 
+    {% if kitty_error %}
+    <div class="flash error" role="alert">
+      <div>
+        <strong>Cannot reach Kittysplit</strong>
+        The kitty could not be read, so the numbers below are missing rather
+        than zero. Nothing here means "you are square" &mdash; it means the
+        kitty was not reachable. Error: {{ kitty_error }}
+      </div>
+    </div>
+    {% endif %}
+
     {% if summary %}
     <div class="grid">
       <div class="stat">
@@ -86,14 +97,20 @@
     <section aria-labelledby="expenses-h">
       <h2 id="expenses-h">Expenses in the kitty</h2>
       <div class="card">
-        {% if not expenses %}
+        {% if kitty_error %}
+        <div class="empty">Could not read the kitty.</div>
+        {% elif not expenses %}
         <div class="empty">No expenses found.</div>
         {% else %}
         {% for e in expenses %}
         <div class="row">
           <div class="desc">
             <strong class="clamp-2" title="{{ e.description }}">{{ e.description }}</strong>
+            {% if e.your_share is none %}
+            <div class="meta">{{ party_names.get(e.paid_by_id, 'Someone') }} paid &middot; <strong>not your expense</strong></div>
+            {% else %}
             <div class="meta">{{ party_names.get(e.paid_by_id, 'Someone') }} paid &middot; your share {{ symbol }}{{ e.your_share|money }}</div>
+            {% endif %}
           </div>
           <div class="amt">{{ symbol }}{{ e.amount|money }}</div>
         </div>

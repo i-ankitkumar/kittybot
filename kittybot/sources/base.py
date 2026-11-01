@@ -133,6 +133,25 @@ def normalise_price(value: object) -> Decimal | None:
         return None
 
 
+def require_total(value: Decimal | None, source: str, order_id: str = "") -> Decimal:
+    """Fail loudly when an order total cannot be read.
+
+    A renamed field in a marketplace response must not turn every order
+    into a silently skipped zero. The old behaviour was to coerce a missing
+    total to 0 and drop the order, so a sync reported "0 new proposals"
+    with no reason and no clue that anything was wrong.
+
+    BigBasket already refused a bill that did not reconcile. This is the
+    same rule for the other three: if the amount cannot be read, say so.
+    """
+    if value is None:
+        raise SourceError(
+            f"{source} returned an order{f' {order_id}' if order_id else ''} "
+            "with no readable total. The response shape may have changed."
+        )
+    return value
+
+
 def parse_timestamp(value: object) -> str | None:
     """Best-effort conversion of a marketplace timestamp to ISO-8601."""
     if value is None:

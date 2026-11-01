@@ -39,6 +39,7 @@ from .base import (
     build_order,
     is_cancelled_order,
     normalise_price,
+    require_total,
 )
 
 MCP_ENDPOINT = "https://mcp.swiggy.com/im"
@@ -123,6 +124,7 @@ class InstamartSource(OrderSource):
             if total is None:
                 bill = raw.get("billDetails") or {}
                 total = normalise_price(bill.get("grandTotal"))
+            total = require_total(total, self.label, str(raw.get("orderId", "")))
             orders.append(
                 build_order(
                     source=self.name,

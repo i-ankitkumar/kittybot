@@ -37,6 +37,7 @@ from .base import (
     build_order,
     is_cancelled_order,
     normalise_price,
+    require_total,
 )
 
 BASE = "https://blinkit.com"
@@ -289,7 +290,7 @@ class BlinkitSource(OrderSource):
         return build_order(
             source=self.name,
             order_id=order_id,
-            total=total,
+            total=require_total(total, self.label, order_id),
             items=items,
             placed_at=placed_at,
             raw={"ref": ref, "detail": payload},

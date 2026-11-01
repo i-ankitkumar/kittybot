@@ -55,6 +55,51 @@ _CSRF_RE = re.compile(r'name="_csrf_token"[^>]*value="([^"]+)"')
 _NUMBER_RE = re.compile(r"-?\d[\d,]*\.?\d*")
 
 
+#: "Ankit gives ₹ 150.00 to Yuvraj". The amount is written with a space
+#: between the symbol and the number, so the middle group has to allow one.
+_SETTLEMENT_RE = re.compile(
+    r"^(.+?)\s+gives\s+(.+?)\s+to\s+(.+?)(?:\s+Mark as settled)?\s*$", re.I
+)
+
+
+def _settlement_texts(soup: Any) -> list[tuple[str, str, str]]:
+    """Pull the settlement plan out of the kitty page.
+
+    Kittysplit renders each settlement as::
+
+        <li class="transaction ks-data-row">
+          <div class="transaction-text">Ankit gives ₹ 150.00 to Yuvraj</div>
+          ... Mark as settled
+        </li>
+
+    The old parser looked for a text node matching ``gives <non-space> to``
+    and then applied a regex that expected the amount to be a single token.
+    Both assumptions were wrong: the amount is "₹ 150.00" with a space in
+    it, so the search never matched and the settlement plan was always
+    empty. Parse the structure instead, and keep a text fallback for the
+    case where the class name changes.
+    """
+    found: list[tuple[str, str, str]] = []
+    seen: set[str] = set()
+
+    for node in soup.select(".transaction-text"):
+        text = " ".join(node.get_text(" ", strip=True).split())
+        match = _SETTLEMENT_RE.match(text)
+        if match and text not in seen:
+            seen.add(text)
+            found.append((match.group(1), match.group(2), match.group(3)))
+
+    if not found:
+        for node in soup.find_all(string=re.compile(r"\bgives\b", re.I)):
+            parent = node.parent
+            text = " ".join(parent.get_text(" ", strip=True).split()) if parent else ""
+            match = _SETTLEMENT_RE.match(text)
+            if match and text not in seen:
+                seen.add(text)
+                found.append((match.group(1), match.group(2), match.group(3)))
+    return found
+
+
 def _parse_money(text: str) -> Decimal | None:
     """Pull a number out of a currency blob.
 
@@ -297,16 +342,10 @@ class KittysplitClient:
                         owed = value
 
         settlements: list[tuple[str, str, Decimal]] = []
-        for node in soup.find_all(string=re.compile(r"gives\s+[^ ]+\s+to\s+", re.I)):
-            text = " ".join(node.parent.get_text(" ", strip=True).split()) if node.parent else ""
-            match = re.search(
-                r"(\w[\w\s]*?)\s+gives\s+([^ ]+)\s+to\s+(\w[\w\s]*?)\s+Mark as settled", text, re.I
-            )
-            if match:
-                payer, amount_text, recipient = match.groups()
-                amount = _parse_money(amount_text)
-                if amount is not None:
-                    settlements.append((payer.strip(), recipient.strip(), amount))
+        for payer, amount_text, recipient in _settlement_texts(soup):
+            amount = _parse_money(amount_text)
+            if amount is not None:
+                settlements.append((payer.strip(), recipient.strip(), amount))
 
         return KittySummary(
             kitty_name=kitty_name,

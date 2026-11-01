@@ -142,6 +142,16 @@ Settings live in `~/.config/kittybot/config.toml` (mode 600) and can be overridd
 | `/balance` | Who owes whom, and how to settle up. |
 | `/export` | The kitty as a spreadsheet. |
 
+From the terminal, the same things work, plus:
+
+| Command | Does |
+|---|---|
+| `kittybot setup` | Interactive setup: bot token, kitty URL, your name. |
+| `kittybot connect <app>` | Connect Instamart, Zepto, Blinkit or BigBasket. |
+| `kittybot run` | Start the Telegram bot and the dashboard. |
+| `kittybot status` | What is configured and what is connected. |
+| `kittybot prune --keep 200` | Trim old proposals from the local store. |
+
 The same things work from the terminal:
 
 ```bash
@@ -242,12 +252,29 @@ So `kittysplit.py` speaks the actual protocol:
 
 Every endpoint and all four split modes were verified against a live kitty, and the test suite creates and deletes a throwaway kitty on each run.
 
+## The local store
+
+Every order the bot sees becomes a proposal row in a local SQLite file. The
+kitty is the source of truth for what was actually spent; the local rows are
+only an audit trail, and they grow for as long as the bot runs.
+
+```bash
+kittybot prune --keep 200                    # keep the last 200 decided proposals
+kittybot prune --keep 200 --max-pending-age-days 30
+```
+
+The second form also drops proposals nobody ever acted on after 30 days.
+Pending proposals are never dropped by the count alone: they are work
+waiting on a human, not history.
+
 ## Safety properties
 
 - **Nothing is written without approval.** `ApprovalEngine.approve()` is the only method in the codebase that creates an expense.
 - **An approval can only land once.** The proposal is claimed with an atomic `UPDATE ... WHERE status = 'pending'` before the write. A double-clicked button, two tabs, or a browser retry reads "pending" twice but only one UPDATE matches the row, so the kitty gets one entry, not two. This is the difference between a flatmate being charged once and twice.
 - **Read-only marketplace access, enforced.** Each adapter allowlists URL *prefixes*, not HTTP methods — Blinkit's cart and checkout endpoints are POSTs too, so a method-based rule would not be enough.
 - **Bills reconcile or they are rejected.** BigBasket orders are checked line-by-line (`unit_price × quantity == line_total`), against the subtotal, and against the total. An order that does not add up is refused rather than recorded wrong.
+- **A renamed field is reported, not swallowed.** If a marketplace changes the shape of its response, the adapter says so instead of recording an order with no total. A sync that silently reports "0 new proposals" is worse than one that fails.
+- **An unreachable kitty says so.** If Kittysplit cannot be read, the dashboard says "Cannot reach Kittysplit" instead of showing a zero total. On a money dashboard, an empty page and a page that says "you owe nothing" must not look the same.
 - **The dashboard can lock itself.** `KITTYBOT_DASHBOARD_TOKEN` turns on HTTP Basic auth for every page, including the approve and reject routes.
 - **Credentials stay local.** `~/.config/kittybot/`, mode 600, never in the repo.
 - **Cancelled and refunded orders are skipped.** They are not spend.

@@ -94,7 +94,11 @@ def create_app(config: Config, engine: ApprovalEngine, store: Store) -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     # Amounts read better grouped: 18500.00 is hard to scan, 18,500.00 is not.
-    templates.env.filters["money"] = lambda value: f"{value:,.2f}"
+    # None means "you are not involved in this expense", which is a real
+    # state in a kitty with more than two people, so it must not blow up.
+    templates.env.filters["money"] = lambda value: (
+        "-" if value is None else f"{value:,.2f}"
+    )
 
     # ------------------------------------------------------------------
     # helpers
@@ -164,12 +168,18 @@ def create_app(config: Config, engine: ApprovalEngine, store: Store) -> FastAPI:
     # ------------------------------------------------------------------
     @app.get("/", response_class=HTMLResponse)
     async def index(request: Request):
+        kitty_error = None
         try:
             summary = engine.client.summary()
             expenses = engine.client.list_expenses()[:25]
-        except Exception:
+        except Exception as exc:
+            # A blanket except used to turn "Kittysplit is unreachable" into
+            # a page that reads like a perfectly normal, empty kitty. On a
+            # money dashboard that is the dangerous kind of empty: the user
+            # sees a zero total and concludes they are square.
             summary = None
             expenses = []
+            kitty_error = scrub(str(exc)) or exc.__class__.__name__
 
         context = base_context(request)
         context.update(
@@ -179,6 +189,7 @@ def create_app(config: Config, engine: ApprovalEngine, store: Store) -> FastAPI:
                 "pending": store.pending_proposals(),
                 "recent": store.list_proposals(limit=20),
                 "symbol": (summary.currency_symbol if summary else "₹"),
+                "kitty_error": kitty_error,
             }
         )
         return templates.TemplateResponse(request, "index.html", context)
