@@ -212,6 +212,7 @@ def _connect_blinkit() -> int:
     source.save_session(session)
     print(f"   Connected. Session saved to {source.session_file} (mode 600)")
     print("   Note: logging out of Blinkit revokes this session.")
+    _report_blinkit_session(session)
     return 0
 
 
@@ -277,7 +278,95 @@ def _connect_bigbasket() -> int:
     }
     source.save_session(session)
     print(f"   Connected. Session saved to {source.session_file} (mode 600)")
+    _report_bigbasket_session(session)
     return 0
+
+
+def _report_session_fields(
+    fields: list[tuple[str, object, bool]],
+    extra: tuple[str, object, bool],
+    missing_hint: str,
+    success_hint: str,
+) -> None:
+    """Print a capture report. ``sensitive`` fields are never printed.
+
+    A credential must not end up in scrollback or a terminal recording, so
+    for those only the ok/MISSING verdict is shown. The non-sensitive ones
+    are truncated, because a mismatch is only debuggable if you can see the
+    value that was captured.
+    """
+    print("   captured:")
+    missing: list[str] = []
+    for label, value, sensitive in fields:
+        mark = "ok " if value else "MISSING"
+        if sensitive:
+            shown = "(not shown)"
+        else:
+            shown = (str(value)[:28] + "...") if value else "-"
+        print(f"     [{mark:>7}] {label:<14} {shown}")
+        if not value:
+            missing.append(label)
+
+    label, value, sensitive = extra
+    mark = "ok " if value else "MISSING"
+    shown = "(not shown)" if sensitive else str(value)
+    print(f"     [{mark:>7}] {label:<14} {shown}")
+    if not value:
+        missing.append(label)
+
+    if missing:
+        print(
+            f"   WARNING: missing {', '.join(missing)}.\n"
+            f"   {missing_hint}"
+        )
+    else:
+        print(f"   {success_hint}")
+
+
+def _report_blinkit_session(session: dict) -> None:
+    """Say what was captured and what is missing.
+
+    Without this the import always says "Connected", and a missing field
+    only shows up much later as a 401 with no clue which one it was.
+    """
+    cookies = session.get("cookies") or {}
+    _report_session_fields(
+        fields=[
+            ("access token", session.get("access_token"), True),
+            ("auth key", session.get("auth_key"), True),
+            ("device id", session.get("device_id"), False),
+            ("session uuid", session.get("session_uuid"), False),
+            ("user agent", session.get("user_agent"), False),
+            ("app version", session.get("app_version_v1"), False),
+            ("latitude", session.get("lat"), False),
+            ("longitude", session.get("lon"), False),
+        ],
+        extra=("gr_1 cookies", len(cookies), False),
+        missing_hint=(
+            "Blinkit will probably return 401. Log out of Blinkit in that "
+            "browser window, log in again, and retry."
+        ),
+        success_hint="Everything Blinkit needs is present.",
+    )
+
+
+def _report_bigbasket_session(session: dict) -> None:
+    """Same idea for BigBasket."""
+    cookies = session.get("cookies") or {}
+    _report_session_fields(
+        fields=[
+            ("member id", session.get("member_id"), False),
+            ("csrf token", session.get("csrf_token"), True),
+            ("entry context", session.get("entry_context_id"), False),
+            ("user agent", session.get("user_agent"), False),
+        ],
+        extra=("cookies", len(cookies), False),
+        missing_hint=(
+            "BigBasket will probably return 401. Log in again in that "
+            "browser window and retry."
+        ),
+        success_hint="Everything BigBasket needs is present.",
+    )
 
 
 # ----------------------------------------------------------------------

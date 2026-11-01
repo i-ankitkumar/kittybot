@@ -387,6 +387,76 @@ def test_blinkit_parses_the_checkout_time_widget():
     assert placed.startswith("2026-09-13")
 
 
+def test_the_blinkit_connect_diagnostic_names_missing_fields(capsys):
+    """A broken session import must say what is missing, not just "Connected"."""
+    from kittybot.cli import _report_blinkit_session
+
+    _report_blinkit_session(
+        {
+            "access_token": "CREDENTIALVALUEAAA",
+            "auth_key": "",
+            "device_id": "dev",
+            "session_uuid": "sess",
+            "user_agent": "Mozilla/5.0",
+            "app_version_v1": "1010101010",
+            "lat": 18.52,
+            "lon": 73.85,
+            "cookies": {},
+        }
+    )
+    out = capsys.readouterr().out
+    assert "MISSING" in out
+    assert "auth key" in out
+    assert "gr_1 cookies" in out
+    assert "WARNING" in out
+    # A credential must never reach the terminal, not even truncated.
+    assert "CREDENTIALVALUEAAA" not in out
+    assert "(not shown)" in out
+
+
+def test_the_blinkit_connect_diagnostic_passes_a_good_session(capsys):
+    from kittybot.cli import _report_blinkit_session
+
+    _report_blinkit_session(
+        {
+            "access_token": "CREDENTIALVALUEAAA",
+            "auth_key": "CREDENTIALVALUEBBB",
+            "device_id": "dev",
+            "session_uuid": "sess",
+            "user_agent": "Mozilla/5.0",
+            "app_version_v1": "1010101010",
+            "lat": 18.52,
+            "lon": 73.85,
+            "cookies": {"gr_1_a": "1"},
+        }
+    )
+    out = capsys.readouterr().out
+    assert "MISSING" not in out
+    assert "WARNING" not in out
+    assert "Everything Blinkit needs is present" in out
+    # Even a good session must not print its credentials.
+    assert "CREDENTIALVALUEAAA" not in out
+    assert "CREDENTIALVALUEBBB" not in out
+
+
+def test_the_bigbasket_connect_diagnostic_names_missing_fields(capsys):
+    from kittybot.cli import _report_bigbasket_session
+
+    _report_bigbasket_session(
+        {
+            "member_id": "MEMBERVALUE123",
+            "csrf_token": "",
+            "entry_context_id": "",
+            "user_agent": "Mozilla/5.0",
+            "cookies": {"_bb_mid": "MEMBERVALUE123"},
+        }
+    )
+    out = capsys.readouterr().out
+    assert "MISSING" in out
+    assert "csrf token" in out
+    assert "WARNING" in out
+
+
 def test_cancelled_orders_are_recognised():
     """A cancelled or refunded order is not spend, in any adapter's shape."""
     from kittybot.sources.base import is_cancelled_order
