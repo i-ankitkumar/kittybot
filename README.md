@@ -191,9 +191,18 @@ higher the rung the more durable it is:
 Those two need Playwright and its Chromium build, which are not part of the normal install:
 
 ```bash
-pip install -e ".[browsers]"
-playwright install chromium
+uv pip install -e ".[browsers]" && uv run playwright install chromium
 ```
+
+or, in a plain pip virtualenv:
+
+```bash
+pip install -e ".[browsers]" && playwright install chromium
+```
+
+If you installed with `uv`, use `uv pip` and `uv run` rather than `pip` and
+`playwright` directly: a `uv`-created virtualenv has no `pip` module inside
+it, so `python -m pip` fails with "No module named pip".
 
 > **Note on Blinkit and BigBasket:** these are undocumented internal endpoints. They can change without notice and may stop working. The adapters fail loudly rather than silently recording wrong amounts. Blinkit and BigBasket run bug-bounty programmes; use this for your own account, respectfully.
 
