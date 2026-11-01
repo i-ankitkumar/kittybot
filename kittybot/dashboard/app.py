@@ -7,9 +7,9 @@ proposals and the recent expenses. It runs on localhost by default.
 from __future__ import annotations
 
 import json
-import re
 import secrets
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -30,13 +30,8 @@ STATIC_DIR = HERE / "static"
 #: credential — it must not end up in the address bar or in browser history.
 FLASH_COOKIE = "kittybot_flash"
 
-#: Anything that looks like a Kittysplit link is scrubbed out of messages.
-_SECRET_RE = re.compile(r"https?://(?:www\.)?kittysplit\.com/\S*", re.IGNORECASE)
-
-
-def scrub(message: str) -> str:
-    """Remove kitty URLs from a message before showing it to the user."""
-    return _SECRET_RE.sub("[kitty link]", message or "")
+#: Re-exported so the dashboard and the Telegram bot scrub identically.
+from ..scrub import scrub  # noqa: E402  (kept next to its use)
 
 
 def source_label(source: str) -> str:
@@ -98,6 +93,9 @@ def create_app(config: Config, engine: ApprovalEngine, store: Store) -> FastAPI:
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+    # Amounts read better grouped: 18500.00 is hard to scan, 18,500.00 is not.
+    templates.env.filters["money"] = lambda value: f"{value:,.2f}"
+
     # ------------------------------------------------------------------
     # helpers
     # ------------------------------------------------------------------
@@ -127,11 +125,14 @@ def create_app(config: Config, engine: ApprovalEngine, store: Store) -> FastAPI:
         303 See Other, not the 307 default: a 307 preserves the POST method,
         so the browser would re-POST to a GET-only page and land on a raw
         JSON "405 Method Not Allowed".
+
+        The message records the page it belongs to. A flash set in one tab
+        must not show up on an unrelated proposal in another tab.
         """
         response = RedirectResponse(url, status_code=303)
         response.set_cookie(
             FLASH_COOKIE,
-            json.dumps({"kind": kind, "message": scrub(message)}),
+            json.dumps({"kind": kind, "message": scrub(message), "for": url}),
             httponly=True,
             samesite="strict",
             max_age=60,
@@ -142,8 +143,14 @@ def create_app(config: Config, engine: ApprovalEngine, store: Store) -> FastAPI:
     def base_context(request: Request) -> dict:
         flash = read_flash(request)
         if flash:
-            # One-shot: clear it so a refresh does not repeat the message.
-            request.cookies.clear()
+            intended = flash.get("for") or ""
+            if intended and request.url.path != urlparse(intended).path:
+                # Not the page this message is about. Leave it in the cookie
+                # so it still reaches the right page, and show nothing here.
+                flash = None
+            else:
+                # One-shot: clear it so a refresh does not repeat the message.
+                request.cookies.clear()
         return {
             "config": config,
             "symbol": "₹",
@@ -207,7 +214,14 @@ def create_app(config: Config, engine: ApprovalEngine, store: Store) -> FastAPI:
             # Never swallow this. Record it on the proposal so the reason is
             # visible in Recent Activity, and tell the user what went wrong.
             message = str(exc) or exc.__class__.__name__
-            store.decide(proposal_id, ApprovalStatus.FAILED, error=message)
+            # Only mark it failed if it was still pending. A double-submit
+            # arrives after the first request already decided it, and
+            # overwriting that status would make the dashboard report a
+            # successful expense as failed -- while the kitty entry it
+            # created is sitting there.
+            current = store.get_proposal(proposal_id)
+            if current is not None and current.status is ApprovalStatus.PENDING:
+                store.decide(proposal_id, ApprovalStatus.FAILED, error=message)
             return redirect_with_flash("/pending", "error", message)
 
         if draft.status is ApprovalStatus.FAILED:
@@ -228,6 +242,12 @@ def create_app(config: Config, engine: ApprovalEngine, store: Store) -> FastAPI:
         if draft is None:
             return redirect_with_flash("/pending", "error", "That proposal no longer exists.")
         return redirect_with_flash("/pending", "success", f"Rejected {draft.description}.")
+
+    @app.exception_handler(404)
+    async def not_found(request: Request, exc: Exception):
+        """Render a styled 404 instead of FastAPI's raw JSON."""
+        context = base_context(request)
+        return templates.TemplateResponse(request, "404.html", context, status_code=404)
 
     @app.get("/export.xlsx")
     async def export_xlsx():

@@ -33,7 +33,7 @@
     <div class="card" style="padding:18px; margin-bottom:14px;">
       <div class="desc">
         <strong class="clamp-3" style="font-size:16px;" title="{{ p.description }}">{{ p.description }}</strong>
-        <div class="meta">{{ symbol }}{{ p.amount }} &middot; paid by {{ p.paid_by }} &middot; {{ p.date }}</div>
+        <div class="meta">{{ symbol }}{{ p.amount|money }} &middot; paid by {{ p.paid_by }} &middot; {{ p.date }}</div>
         <div class="meta">Proposed: {{ p.split_summary() }}</div>
       </div>
       {% if p.items %}

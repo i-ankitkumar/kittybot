@@ -161,11 +161,14 @@ a:focus, button:focus, input:focus {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  /* A description may contain a line break. HTML collapses it to a space
+     unless told otherwise, which silently loses the author's layout. */
+  white-space: pre-line;
 }
 .clamp-2 { -webkit-line-clamp: 2; }
 .clamp-3 { -webkit-line-clamp: 3; }
 
-.desc strong.clamp-2 { white-space: normal; display: -webkit-box; }
+.err-detail { white-space: pre-line; }
 
 footer.site-footer {
   color: var(--muted);

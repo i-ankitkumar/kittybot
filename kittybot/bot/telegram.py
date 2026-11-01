@@ -36,6 +36,7 @@ from ..approvals import ApprovalEngine
 from ..config import Config
 from ..kittysplit import CATEGORY_FOOD
 from ..models import ApprovalStatus, ExpenseDraft, Split
+from ..scrub import scrub
 from ..sources import build_sources
 from ..sources.base import SourceError
 from ..splits import SplitParseError, parse_split
@@ -474,7 +475,19 @@ class KittyBot:
             if split is None:
                 await callback.answer("Could not work out that split.", show_alert=True)
                 return
-            self.engine.approve(proposal_id, split)
+            try:
+                self.engine.approve(proposal_id, split)
+            except Exception as exc:
+                # A double-tap on the button, or a proposal someone else
+                # already approved. Answer the callback either way, or the
+                # Telegram client spins on the button until it times out.
+                await callback.answer(
+                    scrub(str(exc) or exc.__class__.__name__), show_alert=True
+                )
+                await callback.message.edit_text(
+                    f"Not added: {scrub(str(exc) or exc.__class__.__name__)}"
+                )
+                return
             updated = self.store.get_proposal(proposal_id)
             await callback.message.edit_text(_approval_result(updated))
             await callback.answer()

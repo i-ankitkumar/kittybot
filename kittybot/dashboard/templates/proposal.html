@@ -28,7 +28,7 @@
 
     <div class="card" style="padding:20px;">
       <h1 class="clamp-3" style="font-size:19px; margin:0 0 6px;" title="{{ proposal.description }}">{{ proposal.description }}</h1>
-      <div class="meta">{{ symbol }}{{ proposal.amount }} &middot; paid by {{ proposal.paid_by }} &middot; {{ proposal.date }}</div>
+      <div class="meta">{{ symbol }}{{ proposal.amount|money }} &middot; paid by {{ proposal.paid_by }} &middot; {{ proposal.date }}</div>
       <div class="meta">Proposed split: {{ proposal.split_summary() }}</div>
       {% if proposal.error %}
       <div class="err-detail" style="margin-top:8px;">{{ proposal.error }}</div>
@@ -36,7 +36,7 @@
       {% if proposal.items %}
       <div class="items" style="margin-top:14px; border-top:1px solid var(--border); padding-top:14px;">
         {% for i in proposal.items %}
-        · {{ i.name }} ×{{ i.quantity }}{% if i.price %} — {{ symbol }}{{ i.price }}{% endif %}<br>
+        · {{ i.name }} ×{{ i.quantity }}{% if i.price %} — {{ symbol }}{{ i.price|money }}{% endif %}<br>
         {% endfor %}
       </div>
       {% endif %}

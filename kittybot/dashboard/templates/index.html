@@ -32,19 +32,19 @@
     <div class="grid">
       <div class="stat">
         <div class="label">Group total</div>
-        <div class="value">{{ symbol }}{{ summary.total_cost }}</div>
+        <div class="value">{{ symbol }}{{ summary.total_cost|money }}</div>
       </div>
       <div class="stat">
         <div class="label">Cost to you</div>
-        <div class="value">{{ symbol }}{{ summary.your_cost }}</div>
+        <div class="value">{{ symbol }}{{ summary.your_cost|money }}</div>
       </div>
       <div class="stat">
         <div class="label">You paid</div>
-        <div class="value">{{ symbol }}{{ summary.you_paid }}</div>
+        <div class="value">{{ symbol }}{{ summary.you_paid|money }}</div>
       </div>
       <div class="stat">
         <div class="label">You are owed</div>
-        <div class="value {% if summary.you_are_owed > 0 %}pos{% endif %}">{{ symbol }}{{ summary.you_are_owed }}</div>
+        <div class="value {% if summary.you_are_owed > 0 %}pos{% endif %}">{{ symbol }}{{ summary.you_are_owed|money }}</div>
       </div>
     </div>
     {% endif %}
@@ -56,7 +56,7 @@
         {% for payer, recipient, amount in summary.settlements %}
         <div class="row">
           <div class="desc"><strong>{{ payer }} &rarr; {{ recipient }}</strong></div>
-          <div class="amt">{{ symbol }}{{ amount }}</div>
+          <div class="amt">{{ symbol }}{{ amount|money }}</div>
         </div>
         {% endfor %}
       </div>
@@ -75,7 +75,7 @@
             <strong class="clamp-2" title="{{ p.description }}">{{ p.description }}</strong>
             <div class="meta">{{ p.split_summary() }} &middot; paid by {{ p.paid_by }} &middot; {{ p.date }}</div>
           </div>
-          <div class="amt">{{ symbol }}{{ p.amount }}</div>
+          <div class="amt">{{ symbol }}{{ p.amount|money }}</div>
           <a class="pill pending" href="/proposal/{{ p.id }}">decide</a>
         </div>
         {% endfor %}
@@ -93,9 +93,9 @@
         <div class="row">
           <div class="desc">
             <strong class="clamp-2" title="{{ e.description }}">{{ e.description }}</strong>
-            <div class="meta">{{ party_names.get(e.paid_by_id, 'Someone') }} paid &middot; your share {{ symbol }}{{ e.your_share }}</div>
+            <div class="meta">{{ party_names.get(e.paid_by_id, 'Someone') }} paid &middot; your share {{ symbol }}{{ e.your_share|money }}</div>
           </div>
-          <div class="amt">{{ symbol }}{{ e.amount }}</div>
+          <div class="amt">{{ symbol }}{{ e.amount|money }}</div>
         </div>
         {% endfor %}
         {% endif %}
@@ -117,7 +117,7 @@
             <div class="err-detail">{{ r.error }}</div>
             {% endif %}
           </div>
-          <div class="amt">{{ symbol }}{{ r.amount }}</div>
+          <div class="amt">{{ symbol }}{{ r.amount|money }}</div>
           <span class="pill {{ r.status.value }}">{{ r.status.value }}</span>
         </div>
         {% endfor %}
