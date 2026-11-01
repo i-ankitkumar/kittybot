@@ -31,6 +31,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.2", "pytest-asyncio>=0.24", "ruff>=0.5"]
+# Blinkit and BigBasket have no API, so they reuse a browser session. This
+# extra pulls Playwright; the Chromium binary is a separate one-time download.
+browsers = ["playwright>=1.40"]
 
 [project.scripts]
 kittybot = "kittybot.cli:main"

@@ -188,6 +188,13 @@ higher the rung the more durable it is:
 
 **Blinkit and BigBasket** have no public API. The bot opens a real browser once, you log in yourself, and it saves your session to `~/.config/kittybot/` (mode 600) to replay. Your password never touches the bot — and BigBasket does not even have passwords, only OTPs.
 
+Those two need Playwright and its Chromium build, which are not part of the normal install:
+
+```bash
+pip install -e ".[browsers]"
+playwright install chromium
+```
+
 > **Note on Blinkit and BigBasket:** these are undocumented internal endpoints. They can change without notice and may stop working. The adapters fail loudly rather than silently recording wrong amounts. Blinkit and BigBasket run bug-bounty programmes; use this for your own account, respectfully.
 
 ## Architecture
